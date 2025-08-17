@@ -89,3 +89,67 @@ The application includes pre-built examples for testing:
 - **🏢 Brand Test**: Competitor mention detection
 
 ## Project Structure
+InputOutputGuardrail/
+├── app.py                 # Main Streamlit application
+├── presidio_backend.py    # PII detection engine
+├── guardrail_backend.py   # AI guardrails implementation
+├── guardrail_server/
+│   └── config.py         # Configuration settings
+├── .env                  # Environment variables (create this)
+└── README.md
+
+
+## Dependencies Overview
+
+### Core Libraries
+- **Streamlit**: Web application framework
+- **Presidio**: Microsoft's PII detection library
+- **spaCy**: Natural language processing
+- **Guardrails AI**: Content validation framework
+
+### Optional Dependencies
+- **OpenAI API**: For advanced LLM-based features
+- **Transformers**: For additional NLP models
+- **NLTK**: Natural language toolkit
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"Resource punkt_tab not found"**
+   ```bash
+   python -c "import nltk; nltk.download('punkt_tab')"
+   python -c "import nltk; nltk.download('popular')"
+   ```
+
+2. **"Model 'en_core_web_sm' not found"**
+   ```bash
+   python -m spacy download en_core_web_sm
+   ```
+
+3. **"No module named 'transformers'"**
+   ```bash
+   pip install transformers
+   ```
+4. **"OpenAI API key not found"**
+- Add your OpenAI API key to the .env file
+
+## Features in Detail
+### PII Detection Methods
+1. Presidio : Advanced NLP-based detection
+2. spaCy : Named Entity Recognition
+3. Regex : Pattern-based fallback detection
+### Supported PII Types
+- Email addresses
+- Phone numbers
+- Social Security Numbers (SSN)
+- Credit card numbers
+- IP addresses
+- Person names
+- And more...
+### AI Guardrails
+- Ethical : Detects harmful, toxic, or inappropriate content
+- Legal : Identifies potential legal issues (medical/legal advice)
+- Technical : Validates factual accuracy and detects hallucinations
+- Data Compliance : Ensures PII protection
+- Brand Protection : Monitors competitor mentions
