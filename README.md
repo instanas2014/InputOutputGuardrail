@@ -1,6 +1,6 @@
 # GenAI Data Sanitization Demo 🔒
 
-A comprehensive Streamlit application for detecting and sanitizing Personally Identifiable Information (PII) in text data, with advanced AI guardrails for content validation.
+A comprehensive Streamlit demo for detecting and sanitizing Personally Identifiable Information (PII) in text data, with advanced AI guardrails for content validation.
 
 ## Features
 
@@ -88,7 +88,9 @@ The application includes pre-built examples for testing:
 - **🔒 PII Test**: Personal information detection
 - **🏢 Brand Test**: Competitor mention detection
 
+
 ## Project Structure
+
 InputOutputGuardrail/
 ├── app.py                 # Main Streamlit application
 ├── presidio_backend.py    # PII detection engine
@@ -96,7 +98,7 @@ InputOutputGuardrail/
 ├── guardrail_server/
 │   └── config.py         # Configuration settings
 ├── .env                  # Environment variables (create this)
-└── README.md
+└── README.md             # Project documentation
 
 
 ## Dependencies Overview
