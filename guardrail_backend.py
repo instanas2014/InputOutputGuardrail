@@ -349,45 +349,75 @@ class HallucinationValidator(Validator):
         except:
             return True  # Default to pass if verification fails
 
+# Add import at the top of the file
+from presidio_backend import DataSanitizer
+
 @register_validator(name="pii_validator", data_type="string")
 class PIIValidator(Validator):
-    """Validates content for PII leakage - prioritized over presidio_backend"""
+    """Validates content for PII leakage using DataSanitizer from presidio_backend"""
     
-    def __init__(self, **kwargs):
+    def __init__(self, confidence_threshold: float = 0.5, risk_threshold: float = 0.3, **kwargs):
         super().__init__(**kwargs)
-        if PRESIDIO_AVAILABLE:
-            self.analyzer = AnalyzerEngine()
-        else:
-            self.analyzer = None
+        self.confidence_threshold = confidence_threshold
+        self.risk_threshold = risk_threshold
+        
+        # Use the existing DataSanitizer instead of duplicating code
+        self.sanitizer = DataSanitizer()
     
     def validate(self, value: str, metadata: Optional[Dict] = None) -> ValidationResult:
-        pii_detected = []
-        
-        # Pattern-based PII detection
+        try:
+            # Use the comprehensive analyze_text method from DataSanitizer
+            import asyncio
+            
+            # Run the async analysis
+            if asyncio.get_event_loop().is_running():
+                # If already in an async context, create a new event loop
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.sanitizer.analyze_text(value))
+                    analysis_result = future.result()
+            else:
+                analysis_result = asyncio.run(self.sanitizer.analyze_text(value))
+            
+            # Filter entities by confidence threshold
+            high_confidence_entities = [
+                entity for entity in analysis_result['entities']
+                if entity['confidence'] >= self.confidence_threshold
+            ]
+            
+            # Check if risk score exceeds threshold
+            if analysis_result['risk_score'] >= self.risk_threshold or high_confidence_entities:
+                # Create detailed error message
+                pii_summary = []
+                for entity in high_confidence_entities:
+                    pii_summary.append(
+                        f"{entity['entity_type']} (confidence: {entity['confidence']:.2f}, method: {entity['detection_method']})"
+                    )
+                
+                error_msg = f"PII detected (risk score: {analysis_result['risk_score']:.2f}): {'; '.join(pii_summary)}"
+                return FailResult(error_message=error_msg)
+            
+            return PassResult()
+            
+        except Exception as e:
+            # Fallback to simple pattern matching if DataSanitizer fails
+            return self._fallback_validation(value)
+    
+    def _fallback_validation(self, value: str) -> ValidationResult:
+        """Simple fallback validation using basic regex patterns"""
         pii_patterns = {
-            'phone': r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b',
-            'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-            'ssn': r'\b\d{3}-\d{2}-\d{4}\b',
-            'credit_card': r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b',
-            'name_pattern': r'\bmy name is\s+([A-Z][a-z]+\s+[A-Z][a-z]+)\b'
+            'EMAIL': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+            'PHONE': r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b',
+            'SSN': r'\b\d{3}-\d{2}-\d{4}\b',
         }
         
+        detected = []
         for pii_type, pattern in pii_patterns.items():
-            matches = re.findall(pattern, value, re.IGNORECASE)
-            if matches:
-                pii_detected.append(f"{pii_type}: {len(matches)} instances")
+            if re.search(pattern, value, re.IGNORECASE):
+                detected.append(pii_type)
         
-        # Use Presidio if available
-        if self.analyzer:
-            try:
-                results = self.analyzer.analyze(text=value, language='en')
-                for result in results:
-                    pii_detected.append(f"{result.entity_type} (confidence: {result.score:.2f})")
-            except Exception as e:
-                pass  # Fallback to pattern matching
-        
-        if pii_detected:
-            return FailResult(error_message=f"PII detected: {'; '.join(pii_detected)}")
+        if detected:
+            return FailResult(error_message=f"PII detected: {', '.join(detected)}")
         
         return PassResult()
 

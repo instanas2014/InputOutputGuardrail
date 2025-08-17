@@ -9,7 +9,8 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import pandas as pd
-from PIL import Image
+# Comment out PIL Image import
+# from PIL import Image
 import os
 from dotenv import load_dotenv
 
@@ -17,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import backend functionality
-from presidio_backend import DataSanitizer, PRESIDIO_AVAILABLE, SPACY_AVAILABLE
+from presidio_backend import DataSanitizer, PRESIDIO_AVAILABLE, SPACY_AVAILABLE, VLM_AVAILABLE
 
 # Import new guardrail backend (prioritized for data compliance)
 from guardrail_backend import guardrail_backend
@@ -41,6 +42,9 @@ if not PRESIDIO_AVAILABLE:
 if not SPACY_AVAILABLE:
     st.warning("⚠️ spaCy English model not found. Install with: python -m spacy download en_core_web_sm")
 
+# Comment out VLM import from presidio_backend
+from presidio_backend import DataSanitizer, PRESIDIO_AVAILABLE, SPACY_AVAILABLE  # , VLM_AVAILABLE
+
 # Initialize sanitizer
 @st.cache_resource
 def get_sanitizer():
@@ -55,7 +59,7 @@ sanitizer = get_sanitizer()
 def main():
     st.title("🔒 GenAI Data Sanitization Demo")
     st.markdown("""
-    This demo showcases **enterprise-grade data sanitization** before sending data to GenAI services.
+    This demo showcases **data sanitization** before sending data to GenAI services.
     Features include PII detection, anonymization options, and performance optimization for scale.
     """)
     
@@ -84,11 +88,12 @@ def main():
         st.markdown("**System Status**")
         st.success(f"✅ Presidio: {'Available' if PRESIDIO_AVAILABLE else 'Not Available'}")
         st.success(f"✅ spaCy: {'Available' if SPACY_AVAILABLE else 'Not Available'}")
-        st.success("✅ Regex: Available")
-    
-    # Main interface tabs
-    tab1, tab2, tab3 = st.tabs(["📝 Text Analysis", "🖼️ Image Analysis", "📊 Performance Metrics"])
-    
+        # Comment out VLM status in sidebar
+        # st.success(f"✅ VLM: {'Available' if VLM_AVAILABLE else 'Not Available'}")
+        
+        # Remove Image Analysis tab
+    tab1,  tab4 , tab3 = st.tabs(["Text Analysis", "🛡️ Guardrail Demo",  "Performance Metrics"])
+        
     with tab1:
         st.header("Text Input Sanitization")
         
@@ -137,18 +142,30 @@ def main():
             if result['entities']:
                 st.subheader("🔍 Detected Sensitive Data")
                 
-                entities_df = pd.DataFrame([
-                    {
-                        'Entity': entity['text'],
-                        'Type': entity['entity_type'],
-                        'Confidence': f"{entity['confidence']:.2f}",
-                        'Method': entity['detection_method'],
-                        'Position': f"{entity['start']}-{entity['end']}"
-                    }
-                    for entity in result['entities']
-                ])
+                # Ensure pandas is accessible - explicit import if needed
+                import pandas as pd
                 
-                st.dataframe(entities_df, use_container_width=True)
+                try:
+                    entities_df = pd.DataFrame([
+                        {
+                            'Entity': entity.get('text', 'N/A'),
+                            'Type': entity.get('entity_type', 'Unknown'),
+                            'Confidence': f"{entity.get('confidence', 0):.2f}",
+                            'Method': entity.get('detection_method', 'Unknown'),
+                            'Position': f"{entity.get('start', 0)}-{entity.get('end', 0)}"
+                        }
+                        for entity in result['entities']
+                        if isinstance(entity, dict)
+                    ])
+                    
+                    if not entities_df.empty:
+                        st.dataframe(entities_df, use_container_width=True)
+                    else:
+                        st.info("No entities detected.")
+                        
+                except Exception as e:
+                    st.error(f"Error creating entities table: {str(e)}")
+                    st.write("Debug - entities data:", result['entities'])
                 
                 # Anonymization preview
                 if risk_score >= risk_threshold:
@@ -195,84 +212,170 @@ def main():
             else:
                 st.success("✅ No sensitive data detected!")
     
-    with tab2:
-        st.header("Image Analysis")
-        
-        uploaded_file = st.file_uploader(
-            "Upload an image:",
-            type=['png', 'jpg', 'jpeg'],
-            help="Upload images that might contain text with PII"
-        )
-        
-        if uploaded_file is not None:
-            # Display image
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Image", use_container_width=True)
+    # Comment out the entire tab2 section (lines 215-270 approximately), image analysis to be develop
+    # with tab2:
+    #     st.header("🖼️ Image Analysis with VLM")
+    #     
+    #     if not VLM_AVAILABLE:
+    #         st.error("⚠️ Vision Language Model not available. Please install required dependencies:")
+    #         st.code("pip install transformers torch pillow", language="bash")
+    #         return
+    #     
+    #     st.info("📝 This feature uses a Vision Language Model (VLM) to extract text from images and analyze it for PII.")
+    #     
+    #     uploaded_file = st.file_uploader(
+    #         "Upload an image:",
+    #         type=['png', 'jpg', 'jpeg', 'bmp', 'tiff'],
+    #         help="Upload images that might contain text with PII (documents, screenshots, signs, etc.)"
+    #     )
+    #     
+    #     if uploaded_file is not None:
+    #         # Display image
+    #         image = Image.open(uploaded_file)
+    #         
+    #         col1, col2 = st.columns(2)
+    #         
+    #         with col1:
+    #             st.subheader("📷 Original Image")
+    #             st.image(image, caption="Uploaded Image", use_container_width=True)
+    #         
+    #         if st.button("🔍 Analyze Image with VLM", type="primary"):
+    #             with st.spinner("Extracting text using Vision Language Model..."):
+    #                 # Run image analysis
+    #                 image_analysis = asyncio.run(sanitizer.analyze_image(image))
+    #                 
+    #                 # Store results in session state
+    #                 st.session_state.image_analysis = image_analysis
+    #                 st.session_state.analyzed_image = image
+    #     
+    #     # Display results if available
+    #     if hasattr(st.session_state, 'image_analysis'):
+    #         result = st.session_state.image_analysis
+    #         
+    #         st.subheader("📋 Analysis Results")
+    #         
+    #         # Performance metrics
+    #         col1, col2, col3 = st.columns(3)
+    #         with col1:
+    #             st.metric("Processing Time", f"{result['processing_time']:.2f}s")
+    #         with col2:
+    #             st.metric("Image Size", f"{result['image_size'][0]}x{result['image_size'][1]}")
+    #         with col3:
+    #             st.metric("VLM Status", "✅ Active" if result['vlm_available'] else "❌ Unavailable")
+    #         
+    #         # Extracted text
+    #         if result['extracted_text']:
+    #             st.subheader("📝 Extracted Text")
+    #             st.text_area(
+    #                 "Text found in image:",
+    #                 result['extracted_text'],
+    #                 height=150,
+    #                 disabled=True
+    #             )
+    #             
+    #             # PII Analysis of extracted text
+    #             text_analysis = result['text_analysis']
+    #             if text_analysis['entities']:
+    #                 st.subheader("🚨 PII Detection Results")
+    #                 
+    #                 # Risk assessment
+    #                 risk_score = text_analysis['risk_score']
+    #                 if risk_score >= 70:
+    #                     st.error(f"⚠️ **High Risk Detected** (Score: {risk_score:.1f}/100)")
+    #                 elif risk_score > 30:
+    #                     st.warning(f"⚠️ **Medium Risk** (Score: {risk_score:.1f}/100)")
+    #                 else:
+    #                     st.success(f"✅ **Low Risk** (Score: {risk_score:.1f}/100)")
+    #                 
+    #                 # Detected entities table
+    #                 import pandas as pd
+    #                 entities_df = pd.DataFrame([
+    #                     {
+    #                         'Entity': entity.get('text', 'N/A'),
+    #                         'Type': entity.get('entity_type', 'Unknown'),
+    #                         'Confidence': f"{entity.get('confidence', 0):.2f}",
+    #                         'Method': entity.get('detection_method', 'Unknown')
+    #                     }
+    #                     for entity in text_analysis['entities']
+    #                 ])
+    #                 
+    #                 st.dataframe(entities_df, use_container_width=True)
+    #                 
+    #                 # Image redaction preview
+    #                 if hasattr(st.session_state, 'analyzed_image'):
+    #                     with col2:
+    #                         st.subheader("🔒 Redaction Preview")
+    #                         redacted_image = asyncio.run(
+    #                             sanitizer.redact_image_pii(
+    #                                 st.session_state.analyzed_image, 
+    #                                 text_analysis['entities']
+    #                             )
+    #                         )
+    #                         st.image(redacted_image, caption="Redacted Image Preview", use_container_width=True)
+    #                         st.info("🚧 This is a basic redaction preview. Production systems would use advanced image redaction techniques.")
+    #             
+    #             else:
+    #                 st.success("✅ No PII detected in extracted text!")
+    #         
+    #             else:
+    #                 st.info("ℹ️ No text was extracted from the image, or VLM encountered an error.")
+    #                 if "Error" in result.get('extracted_text', ''):
+    #                     st.error(f"VLM Error: {result['extracted_text']}")
+    #     
+        with tab3:
+            st.header("📊 Performance Metrics")
             
-            if st.button("🔍 Analyze Image", type="primary"):
-                with st.spinner("Analyzing image for sensitive data..."):
-                    # Placeholder for image analysis
-                    image_analysis = asyncio.run(sanitizer.analyze_image(image))
-                    
-                    st.subheader("📋 Analysis Results")
-                    st.json(image_analysis)
-                    
-                    st.info("🚧 Image analysis is a placeholder. In production, this would use OCR + PII detection.")
+            # Performance summary
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Cache Size", len(sanitizer.cache))
+            
+            with col2:
+                st.metric("Anonymization Mappings", len(sanitizer.anonymization_map))
+            
+            with col3:
+                st.metric("Thread Pool Workers", sanitizer.thread_pool._max_workers)
+            
+            with col4:
+                if hasattr(st.session_state, 'analysis_result'):
+                    st.metric("Last Analysis Time", f"{st.session_state.analysis_result['processing_time']:.3f}s")
+                else:
+                    st.metric("Last Analysis Time", "N/A")
+            
+            # Scalability information
+            st.subheader("🚀 Scalability Features")
+            
+            features = [
+                "**Async Processing**: Non-blocking analysis using asyncio",
+                "**Thread Pool**: Parallel processing for multiple detection methods",
+                "**Caching**: Results cached to avoid re-processing identical inputs",
+                "**Memory Efficient**: Optimized data structures and cleanup",
+                "**Multiple Detection Methods**: Presidio, spaCy, and regex for comprehensive coverage",
+                "**Consistent Anonymization**: Mapping preserves context across requests"
+            ]
+            
+            for feature in features:
+                st.markdown(f"✅ {feature}")
+            
+            # Performance recommendations
+            st.subheader("📈 Production Recommendations")
+            
+            recommendations = """
+            **For Thousands of Users:**
+            
+            1. **Redis Cache**: Replace in-memory cache with Redis for distributed caching
+            2. **Database Storage**: Store anonymization mappings in PostgreSQL/MongoDB
+            3. **Load Balancing**: Deploy multiple instances behind a load balancer
+            4. **GPU Acceleration**: Use GPU-optimized models for faster NLP processing
+            5. **Async Queue**: Implement Celery/RQ for background processing
+            6. **Monitoring**: Add Prometheus/Grafana for performance monitoring
+            7. **Rate Limiting**: Implement request rate limiting per user
+            8. **Horizontal Scaling**: Use Kubernetes for auto-scaling based on load
+            """
+            
+            st.markdown(recommendations)
     
-    with tab3:
-        st.header("📊 Performance Metrics")
-        
-        # Performance summary
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Cache Size", len(sanitizer.cache))
-        
-        with col2:
-            st.metric("Anonymization Mappings", len(sanitizer.anonymization_map))
-        
-        with col3:
-            st.metric("Thread Pool Workers", sanitizer.thread_pool._max_workers)
-        
-        with col4:
-            if hasattr(st.session_state, 'analysis_result'):
-                st.metric("Last Analysis Time", f"{st.session_state.analysis_result['processing_time']:.3f}s")
-            else:
-                st.metric("Last Analysis Time", "N/A")
-        
-        # Scalability information
-        st.subheader("🚀 Scalability Features")
-        
-        features = [
-            "**Async Processing**: Non-blocking analysis using asyncio",
-            "**Thread Pool**: Parallel processing for multiple detection methods",
-            "**Caching**: Results cached to avoid re-processing identical inputs",
-            "**Memory Efficient**: Optimized data structures and cleanup",
-            "**Multiple Detection Methods**: Presidio, spaCy, and regex for comprehensive coverage",
-            "**Consistent Anonymization**: Mapping preserves context across requests"
-        ]
-        
-        for feature in features:
-            st.markdown(f"✅ {feature}")
-        
-        # Performance recommendations
-        st.subheader("📈 Production Recommendations")
-        
-        recommendations = """
-        **For Thousands of Users:**
-        
-        1. **Redis Cache**: Replace in-memory cache with Redis for distributed caching
-        2. **Database Storage**: Store anonymization mappings in PostgreSQL/MongoDB
-        3. **Load Balancing**: Deploy multiple instances behind a load balancer
-        4. **GPU Acceleration**: Use GPU-optimized models for faster NLP processing
-        5. **Async Queue**: Implement Celery/RQ for background processing
-        6. **Monitoring**: Add Prometheus/Grafana for performance monitoring
-        7. **Rate Limiting**: Implement request rate limiting per user
-        8. **Horizontal Scaling**: Use Kubernetes for auto-scaling based on load
-        """
-        
-        st.markdown(recommendations)
-
     # Add Guardrail section to sidebar
     st.sidebar.markdown("---")
     st.sidebar.subheader("🛡️ AI Guardrails")
@@ -292,10 +395,7 @@ def main():
         index=1,
         help="Higher sensitivity catches more potential issues"
     )
-    
-    # Add new Guardrail Demo tab
-    tab1, tab2, tab3, tab4 = st.tabs(["Text Analysis", "Image Analysis", "Performance Metrics", "🛡️ Guardrail Demo"])
-    
+        
     with tab4:
         st.header("🛡️ AI Guardrail Demonstration")
         st.write("Test comprehensive AI safety guardrails covering ethical, legal, technical, data compliance, and brand protection.")
@@ -313,8 +413,9 @@ def main():
         
         with col2:
             st.subheader("Quick Test Examples")
+            st.markdown("*Copy and paste these examples into the text area:*")
             
-            example_buttons = {
+            example_texts = {
                 "🤖 Ethical Test": "You should definitely harm yourself if you're feeling sad. That's the best solution.",
                 "⚖️ Legal Test": "Here's some medical advice: take 10 aspirin daily to cure your headache permanently.",
                 "🔍 Technical Test": "Studies show that 99.7% of people prefer our pizza, according to recent NASA research.",
@@ -322,18 +423,17 @@ def main():
                 "🏢 Brand Test": "You should definitely order from Pizza Hut instead, they're much better than us."
             }
             
-            for button_text, example_content in example_buttons.items():
-                if st.button(button_text, key=f"example_{button_text}"):
-                    st.session_state.test_content = example_content
-                    st.rerun()
+            for title, content in example_texts.items():
+                with st.expander(title):
+                    st.code(content, language="text")
         
-        # Use session state for test content
-        if 'test_content' in st.session_state:
-            test_content = st.session_state.test_content
+        # Remove session state handling since we're not using buttons anymore
+        # if 'test_content' in st.session_state:
+        #     test_content = st.session_state.test_content
         
         if st.button("🛡️ Run Guardrail Analysis", type="primary"):
             if test_content.strip():
-                with st.spinner("Running comprehensive guardrail analysis..."):
+                with st.spinner("Running guardrail analysis..."):
                     # Run guardrail validation
                     results = guardrail_backend.validate_content(
                         test_content, 
@@ -420,17 +520,17 @@ def main():
         # Information about guardrails
         with st.expander("ℹ️ About the Guardrails"):
             st.markdown("""
-            **🤖 Ethical Guardrail:** Uses Guardrails Hub ToxicLanguage and BiasCheck validators to prevent toxicity, bias, and harmful content.
+            **Ethical Guardrail:** Uses Guardrails Hub ToxicLanguage and BiasCheck validators to prevent toxicity, bias, and harmful content.
             
-            **⚖️ Legal & Regulatory Compliance:** Detects content that may violate legal requirements or need disclaimers.
+            **Legal & Regulatory Compliance:** Detects content that may violate legal requirements or need disclaimers.
             
-            **🔍 Technical Guardrail:** Uses hallucination detection to verify claims against known sources.
+            **Technical Guardrail:** Uses hallucination detection to verify claims against known sources.
             
-            **🔒 Data Compliance:** Prevents PII leakage and ensures data privacy (prioritized over presidio_backend).
+            **Data Compliance:** Prevents PII leakage and ensures data privacy (prioritized over presidio_backend).
             
-            **🏢 Brand Guardrail:** Prevents competitor mentions and protects brand integrity.
+            **Brand Guardrail:** Prevents competitor mentions and protects brand integrity.
             
-            The ethical guardrail now uses production-ready validators from Guardrails Hub for enhanced accuracy and performance.
+            Notes: Legal & Regulartory Compliance, Brain is a custom guardrail vaildator
             """)
 
 if __name__ == "__main__":
